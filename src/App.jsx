@@ -21,6 +21,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
+  const [tabHistory, setTabHistory] = useState(['today']);
   const { tasks, loading, addTask, toggleTask, deleteTask } = useTasks(user);
 
   useEffect(() => {
@@ -30,12 +31,33 @@ export default function App() {
     });
   }, []);
 
+  const goToTab = (tab) => {
+    if (tab === activeTab) return;
+    setTabHistory(prev => [...prev, tab]);
+    setActiveTab(tab);
+  };
+
+  const goBack = () => {
+    if (tabHistory.length <= 1) return;
+    const newHistory = tabHistory.slice(0, -1);
+    setTabHistory(newHistory);
+    setActiveTab(newHistory[newHistory.length - 1]);
+  };
+
+  const goHome = () => {
+    setTabHistory(['today']);
+    setActiveTab('today');
+  };
+
+  const canGoBack = tabHistory.length > 1;
+  const currentTabLabel = TABS.find(t => t.id === activeTab)?.label || '';
+
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-5xl mb-4">📅</div>
-          <p className="text-gray-400 text-lg">로딩 중...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📅</div>
+          <p style={{ color: '#9ca3af', fontSize: '16px' }}>로딩 중...</p>
         </div>
       </div>
     );
@@ -45,8 +67,8 @@ export default function App() {
 
   const renderTab = () => {
     if (loading) return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-400 text-base">불러오는 중...</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
+        <p style={{ color: '#9ca3af' }}>불러오는 중...</p>
       </div>
     );
     switch (activeTab) {
@@ -60,20 +82,65 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col max-w-2xl mx-auto">
+    <div style={{ minHeight: '100vh', background: '#f5f7fa', display: 'flex', flexDirection: 'column', maxWidth: '640px', margin: '0 auto' }}>
+
       {/* 헤더 */}
-      <header className="bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <span className="text-2xl">📅</span>
-          <span className="font-bold text-gray-800 text-lg">업무 스케줄러</span>
-        </div>
-        <div className="flex items-center gap-3">
-          {user.photoURL && (
-            <img src={user.photoURL} alt={user.displayName} className="w-9 h-9 rounded-full border-2 border-gray-100" />
-          )}
+      <header style={{
+        background: '#fff', borderBottom: '1px solid #f0f0f0',
+        padding: '12px 16px', display: 'flex', alignItems: 'center',
+        gap: '8px', position: 'sticky', top: 0, zIndex: 10,
+      }}>
+        {/* 뒤로가기 버튼 */}
+        <button
+          onClick={goBack}
+          disabled={!canGoBack}
+          style={{
+            width: '36px', height: '36px', borderRadius: '10px',
+            border: '1px solid #e5e7eb', background: canGoBack ? '#fff' : '#f9fafb',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: canGoBack ? 'pointer' : 'default',
+            fontSize: '18px', color: canGoBack ? '#374151' : '#d1d5db',
+            flexShrink: 0, transition: 'all 0.15s',
+          }}
+          aria-label="뒤로가기"
+        >
+          ‹
+        </button>
+
+        {/* 홈 버튼 */}
+        <button
+          onClick={goHome}
+          style={{
+            width: '36px', height: '36px', borderRadius: '10px',
+            border: '1px solid #e5e7eb', background: activeTab === 'today' ? '#E6F1FB' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', fontSize: '18px',
+            color: activeTab === 'today' ? '#0C447C' : '#374151',
+            flexShrink: 0, transition: 'all 0.15s',
+          }}
+          aria-label="홈으로"
+        >
+          🏠
+        </button>
+
+        {/* 현재 탭 이름 */}
+        <span style={{ flex: 1, fontSize: '17px', fontWeight: '700', color: '#1f2937', textAlign: 'center' }}>
+          {currentTabLabel}
+        </span>
+
+        {/* 프로필 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {user.photoURL
+            ? <img src={user.photoURL} alt={user.displayName} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid #e5e7eb' }} />
+            : <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#E6F1FB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: '#0C447C' }}>은</div>
+          }
           <button
             onClick={() => signOut(auth)}
-            className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-colors"
+            style={{
+              fontSize: '13px', color: '#9ca3af', border: '1px solid #e5e7eb',
+              background: '#fff', borderRadius: '8px', padding: '5px 10px',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
           >
             로그아웃
           </button>
@@ -81,24 +148,34 @@ export default function App() {
       </header>
 
       {/* 탭 콘텐츠 */}
-      <main className="flex-1 pb-24 overflow-auto">
+      <main style={{ flex: 1, paddingBottom: '80px', overflow: 'auto' }}>
         {renderTab()}
       </main>
 
       {/* 하단 탭 바 */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white border-t border-gray-100 flex shadow-xl">
+      <nav style={{
+        position: 'fixed', bottom: 0,
+        left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: '640px',
+        background: '#fff', borderTop: '1px solid #f0f0f0',
+        display: 'flex',
+      }}>
         {TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex flex-col items-center py-3 gap-1 transition-all ${
-              activeTab === tab.id ? 'text-blue-600' : 'text-gray-400'
-            }`}
+            onClick={() => goToTab(tab.id)}
+            style={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', padding: '10px 0 12px', gap: '3px',
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              color: activeTab === tab.id ? '#0C447C' : '#9ca3af',
+              transition: 'color 0.15s',
+            }}
           >
-            <span className="text-2xl leading-none">{tab.icon}</span>
-            <span className="text-xs font-semibold">{tab.label}</span>
+            <span style={{ fontSize: '24px', lineHeight: 1 }}>{tab.icon}</span>
+            <span style={{ fontSize: '11px', fontWeight: '600', fontFamily: 'inherit' }}>{tab.label}</span>
             {activeTab === tab.id && (
-              <div className="w-1 h-1 rounded-full bg-blue-600" />
+              <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#0C447C' }} />
             )}
           </button>
         ))}
