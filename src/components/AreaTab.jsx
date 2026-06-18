@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { AREAS, AREA_MAP } from '../constants/areas';
 
+const VIEWS = [
+  { key: 'today', label: '오늘' },
+  { key: 'week', label: '이번 주' },
+  { key: 'recurring', label: '반복' },
+  { key: 'done', label: '완료' },
+];
+
 export default function AreaTab({ tasks, toggleTask, deleteTask }) {
   const [selectedArea, setSelectedArea] = useState('paua');
   const [view, setView] = useState('today');
@@ -8,16 +15,15 @@ export default function AreaTab({ tasks, toggleTask, deleteTask }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().split('T')[0];
-
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay() + 1);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
-  const areaTasks = tasks.filter(t => t.area === selectedArea);
   const area = AREA_MAP[selectedArea];
 
-  const filtered = areaTasks.filter(t => {
+  const filtered = tasks.filter(t => {
+    if (t.area !== selectedArea) return false;
     const d = t.date?.toDate();
     if (!d) return false;
     const ds = d.toISOString().split('T')[0];
@@ -28,57 +34,54 @@ export default function AreaTab({ tasks, toggleTask, deleteTask }) {
     return false;
   });
 
-  const VIEWS = [
-    { key: 'today', label: '오늘' },
-    { key: 'week', label: '이번 주' },
-    { key: 'recurring', label: '반복' },
-    { key: 'done', label: '완료' },
-  ];
-
   return (
-    <div className="px-4 pt-5 pb-4 max-w-2xl mx-auto">
-      {/* 영역 선택 */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
+    <div style={{ padding: '16px', boxSizing: 'border-box', width: '100%' }}>
+
+      {/* 영역 선택 그리드 (2열) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
         {AREAS.map(a => {
           const cnt = tasks.filter(t => t.area === a.code && !t.completed).length;
+          const isSel = selectedArea === a.code;
           return (
             <button
               key={a.code}
               onClick={() => setSelectedArea(a.code)}
-              className="rounded-2xl p-3 text-left transition-all active:scale-95"
-              style={selectedArea === a.code
-                ? { background: a.text, boxShadow: `0 4px 14px ${a.text}55` }
-                : { background: a.bg }
-              }
+              style={{
+                borderRadius: '16px', padding: '14px 16px', textAlign: 'left',
+                border: isSel ? `2px solid ${a.text}` : '2px solid transparent',
+                background: isSel ? a.text : a.bg,
+                cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
+              }}
             >
-              <p className="text-xl font-bold mb-0.5" style={{ color: selectedArea === a.code ? '#fff' : a.text }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: isSel ? '#fff' : a.text, marginBottom: '2px' }}>
                 {cnt}
-              </p>
-              <p className="text-xs font-semibold leading-tight" style={{ color: selectedArea === a.code ? 'rgba(255,255,255,0.85)' : a.text }}>
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: '600', color: isSel ? 'rgba(255,255,255,0.85)' : a.text }}>
                 {a.short}
-              </p>
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* 선택된 영역 헤더 */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-4 h-4 rounded-full" style={{ background: area.text }} />
-        <h3 className="text-lg font-bold text-gray-800">{area.label}</h3>
+      {/* 선택 영역명 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: area.text, flexShrink: 0 }} />
+        <span style={{ fontSize: '16px', fontWeight: '700', color: '#1f2937' }}>{area.label}</span>
       </div>
 
       {/* 보기 탭 */}
-      <div className="flex gap-1.5 mb-4 bg-gray-100 rounded-2xl p-1.5">
+      <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', borderRadius: '14px', padding: '4px', marginBottom: '14px' }}>
         {VIEWS.map(v => (
           <button
             key={v.key}
             onClick={() => setView(v.key)}
-            className="flex-1 text-sm py-2 rounded-xl font-semibold transition-all"
-            style={view === v.key
-              ? { background: area.text, color: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }
-              : { color: '#9ca3af' }
-            }
+            style={{
+              flex: 1, padding: '9px 4px', borderRadius: '10px', fontSize: '13px', fontWeight: '600',
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+              background: view === v.key ? area.text : 'transparent',
+              color: view === v.key ? '#fff' : '#9ca3af',
+            }}
           >
             {v.label}
           </button>
@@ -87,45 +90,44 @@ export default function AreaTab({ tasks, toggleTask, deleteTask }) {
 
       {/* 할 일 목록 */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-5xl mb-3">📭</p>
-          <p className="text-base text-gray-400 font-medium">해당 업무가 없습니다</p>
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+          <p style={{ fontSize: '15px', color: '#6b7280', fontWeight: '500' }}>해당 업무가 없습니다</p>
         </div>
       ) : (
         filtered.map(task => (
-          <div
-            key={task.id}
-            className="flex items-center gap-3 py-3.5 px-4 rounded-2xl mb-2.5 bg-white shadow-sm"
-            style={{ borderLeft: `5px solid ${area.text}` }}
-          >
+          <div key={task.id} style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '13px 14px', background: '#fff', borderRadius: '14px',
+            marginBottom: '7px', borderLeft: `4px solid ${area.text}`, boxSizing: 'border-box', width: '100%',
+          }}>
             <button
               onClick={() => toggleTask(task.id, task.completed)}
-              className="shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all"
               style={{
-                borderColor: task.completed ? area.text : '#d1d5db',
+                width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                border: `2px solid ${task.completed ? area.text : '#d1d5db'}`,
                 background: task.completed ? area.text : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
               }}
             >
-              {task.completed && <span className="text-white text-xs font-bold">✓</span>}
+              {task.completed && <span style={{ color: '#fff', fontSize: '12px', fontWeight: '700' }}>✓</span>}
             </button>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-base font-medium"
-                style={{
-                  color: task.completed ? '#9ca3af' : '#1f2937',
-                  textDecoration: task.completed ? 'line-through' : 'none',
-                }}
-              >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '15px', fontWeight: '500', color: task.completed ? '#9ca3af' : '#1f2937',
+                textDecoration: task.completed ? 'line-through' : 'none',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
                 {task.title}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              </div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
                 {task.date?.toDate()?.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
                 {task.isRecurring && ' · 반복'}
-              </p>
+              </div>
             </div>
             <button
               onClick={() => deleteTask(task.id)}
-              className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors text-base"
+              style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '15px', color: '#d1d5db', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >✕</button>
           </div>
         ))

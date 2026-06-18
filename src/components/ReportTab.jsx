@@ -50,70 +50,81 @@ export default function ReportTab({ tasks }) {
   };
 
   return (
-    <div className="px-4 pt-5 pb-4 max-w-2xl mx-auto">
-      {/* 기간 선택 + PDF 버튼 */}
-      <div className="bg-gradient-to-br from-slate-700 to-slate-800 rounded-3xl p-5 mb-5 text-white shadow-lg">
-        <h2 className="text-xl font-bold mb-1">업무 완료 보고서</h2>
-        <p className="text-slate-400 text-sm mb-4">{periodLabel} · {filteredTasks.length}건 완료</p>
+    <div style={{ padding: '16px', boxSizing: 'border-box', width: '100%' }}>
+      {/* 헤더 카드 */}
+      <div style={{ background: 'linear-gradient(135deg, #1f2937, #374151)', borderRadius: '20px', padding: '20px', marginBottom: '18px', color: '#fff' }}>
+        <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>업무 완료 보고서</div>
+        <div style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '16px' }}>
+          {periodLabel} · {filteredTasks.length}건 완료
+        </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex bg-slate-600/50 rounded-2xl p-1 flex-1">
-            <button
-              onClick={() => setPeriod('weekly')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${period === 'weekly' ? 'bg-white text-slate-800' : 'text-slate-300'}`}
-            >
-              주간
-            </button>
-            <button
-              onClick={() => setPeriod('monthly')}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${period === 'monthly' ? 'bg-white text-slate-800' : 'text-slate-300'}`}
-            >
-              월간
-            </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* 기간 토글 */}
+          <div style={{ flex: 1, display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '14px', padding: '4px' }}>
+            {['weekly', 'monthly'].map((p, i) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+                  background: period === p ? '#fff' : 'transparent',
+                  color: period === p ? '#1f2937' : '#9ca3af',
+                }}
+              >
+                {p === 'weekly' ? '주간' : '월간'}
+              </button>
+            ))}
           </div>
+          {/* PDF 버튼 */}
           <button
             onClick={handlePDF}
             disabled={generating}
-            className="flex items-center gap-2 bg-blue-500 text-white px-4 py-3 rounded-2xl text-sm font-bold hover:bg-blue-600 active:scale-95 transition-all disabled:opacity-60 shrink-0"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '12px 18px',
+              background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '14px',
+              fontSize: '14px', fontWeight: '700', cursor: generating ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', flexShrink: 0, opacity: generating ? 0.7 : 1,
+            }}
           >
             {generating ? '⏳' : '📄'} PDF
           </button>
         </div>
       </div>
 
-      {/* 영역별 보고 내용 */}
+      {/* 영역별 내용 */}
       {filteredTasks.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="text-5xl mb-4">📭</p>
-          <p className="text-base text-gray-500 font-medium">해당 기간에 완료된 업무가 없습니다</p>
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+          <p style={{ fontSize: '15px', color: '#6b7280', fontWeight: '500' }}>해당 기간에 완료된 업무가 없습니다</p>
         </div>
       ) : (
         AREAS.map(area => {
           const items = grouped[area.code];
           if (!items || items.length === 0) return null;
           return (
-            <div key={area.code} className="mb-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-3 h-3 rounded-full" style={{ background: area.text }} />
-                <span className="text-base font-bold" style={{ color: area.text }}>{area.label}</span>
-                <span className="text-sm text-gray-400 ml-auto">{items.length}건</span>
+            <div key={area.code} style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: area.text, flexShrink: 0 }} />
+                <span style={{ fontSize: '15px', fontWeight: '700', color: area.text }}>{area.label}</span>
+                <span style={{ fontSize: '13px', color: '#9ca3af', marginLeft: 'auto' }}>{items.length}건</span>
               </div>
-              <div className="space-y-2">
-                {items.map(task => (
-                  <div key={task.id}
-                    className="flex items-center gap-3 py-3 px-4 bg-white rounded-2xl shadow-sm"
-                    style={{ borderLeft: `4px solid ${area.text}` }}
-                  >
-                    <span className="text-gray-300 text-base shrink-0">○</span>
-                    <span className="flex-1 text-sm font-medium text-gray-700">
-                      {task.title} 업무를 진행함.
-                    </span>
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {task.date?.toDate()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              {items.map(task => (
+                <div key={task.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '13px 14px', background: '#fff', borderRadius: '14px',
+                  marginBottom: '6px', borderLeft: `4px solid ${area.text}`,
+                  boxSizing: 'border-box', width: '100%',
+                }}>
+                  <span style={{ color: '#d1d5db', fontSize: '14px', flexShrink: 0 }}>○</span>
+                  <span style={{ flex: 1, fontSize: '14px', fontWeight: '500', color: '#374151', minWidth: 0 }}>
+                    {task.title} 업무를 진행함.
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#9ca3af', flexShrink: 0 }}>
+                    {task.date?.toDate()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              ))}
             </div>
           );
         })
