@@ -1,12 +1,33 @@
-import { signInWithRedirect } from 'firebase/auth';
+import { signInWithRedirect, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 
+// Samsung Internet, WebView 등 제한된 브라우저 감지
+const isRestrictedBrowser = () => {
+  const ua = navigator.userAgent;
+  return /SamsungBrowser/i.test(ua) || /FBAN|FBAV/i.test(ua) || /Instagram/i.test(ua);
+};
+
 export default function LoginScreen() {
+  const restricted = isRestrictedBrowser();
+
   const handleLogin = async () => {
     try {
-      await signInWithRedirect(auth, googleProvider);
+      // 팝업 지원 브라우저는 팝업, 아니면 리다이렉트
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (popupErr) {
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {
+          await signInWithRedirect(auth, googleProvider);
+        } else {
+          throw popupErr;
+        }
+      }
     } catch (e) {
-      alert('로그인 실패: ' + e.message);
+      if (e.code === 'auth/unauthorized-domain') {
+        alert('도메인 인증 오류입니다. Firebase 콘솔에서 도메인을 추가해주세요.');
+      } else if (e.code !== 'auth/popup-closed-by-user') {
+        alert('로그인 실패: ' + e.message);
+      }
     }
   };
 
@@ -41,6 +62,17 @@ export default function LoginScreen() {
               </div>
             ))}
           </div>
+
+          {/* Samsung 브라우저 경고 */}
+          {restricted && (
+            <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px', padding: '12px 14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#c2410c', marginBottom: '4px' }}>⚠️ Chrome 브라우저를 사용해주세요</div>
+              <div style={{ fontSize: '12px', color: '#9a3412', lineHeight: '1.5' }}>
+                현재 브라우저에서는 Google 로그인이 제한됩니다.<br />
+                Chrome 앱을 열어 <strong>eunhasoo-task.netlify.app</strong> 을 입력해주세요.
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button

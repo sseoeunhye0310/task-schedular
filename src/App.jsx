@@ -26,12 +26,27 @@ export default function App() {
   const { tasks, loading, addTask, toggleTask, deleteTask } = useTasks(user);
 
   useEffect(() => {
-    // 리다이렉트 로그인 결과 처리
-    getRedirectResult(auth).catch(() => {});
-    return onAuthStateChanged(auth, u => {
-      setUser(u);
-      setAuthLoading(false);
-    });
+    // 리다이렉트 결과 먼저 처리 후 auth 상태 구독
+    const init = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          setUser(result.user);
+          setAuthLoading(false);
+          return () => {};
+        }
+      } catch (e) {
+        console.error('redirect result error', e);
+      }
+      const unsub = onAuthStateChanged(auth, u => {
+        setUser(u);
+        setAuthLoading(false);
+      });
+      return unsub;
+    };
+    let cleanup;
+    init().then(fn => { cleanup = fn; });
+    return () => { if (cleanup) cleanup(); };
   }, []);
 
   const goToTab = (tab) => {
