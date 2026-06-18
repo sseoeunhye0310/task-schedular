@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { AREAS, AREA_MAP } from '../constants/areas';
 
 const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
+const pad = n => String(n).padStart(2, '0');
+const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 const S = {
   wrap: { padding: '16px', boxSizing: 'border-box', width: '100%' },
   hero: { background: '#1A3557', borderRadius: '20px', padding: '20px', marginBottom: '14px', color: '#fff' },
   heroYear: { fontSize: '13px', color: '#93b8d4', marginBottom: '2px' },
-  heroDate: { fontSize: '22px', fontWeight: '700', marginBottom: '16px' },
+  heroDateRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' },
+  heroDate: { fontSize: '20px', fontWeight: '700', flex: 1, textAlign: 'center' },
+  heroNavBtn: { width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  todayChip: { fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '8px', background: 'rgba(255,255,255,0.2)', color: '#fff', marginLeft: '8px', verticalAlign: 'middle' },
   heroRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '8px' },
   heroLabel: { fontSize: '13px', color: '#93b8d4' },
   heroCount: { fontSize: '18px', fontWeight: '700' },
@@ -49,7 +55,6 @@ function TaskItem({ task, onToggle, onDelete }) {
       <button
         onClick={() => onToggle(task.id, task.completed)}
         style={{ ...S.checkBtn, borderColor: task.completed ? area.text : '#d1d5db', background: task.completed ? area.text : 'transparent' }}
-        aria-label={task.completed ? '완료 취소' : '완료'}
       >
         {task.completed && <span style={{ color: '#fff', fontSize: '12px', fontWeight: '700' }}>✓</span>}
       </button>
@@ -59,7 +64,7 @@ function TaskItem({ task, onToggle, onDelete }) {
         </div>
         <div style={S.taskMeta}>
           <span style={{ fontWeight: '600', color: area.text }}>{area.short}</span>
-          {task.carriedOver && <span style={{ ...S.badge, background: '#fef2f2', color: '#e74c3c' }}>어제 미완료</span>}
+          {task.carriedOver && <span style={{ ...S.badge, background: '#fef2f2', color: '#e74c3c' }}>이월</span>}
           {task.isRecurring && !task.carriedOver && <span style={{ ...S.badge, background: '#f3f4f6', color: '#9ca3af' }}>반복</span>}
         </div>
       </div>
@@ -68,11 +73,10 @@ function TaskItem({ task, onToggle, onDelete }) {
   );
 }
 
-function AddTaskForm({ onAdd, onCancel }) {
-  const today = new Date().toISOString().split('T')[0];
+function AddTaskForm({ defaultDate, onAdd, onCancel }) {
   const [title, setTitle] = useState('');
   const [area, setArea] = useState('paua');
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(defaultDate);
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -98,31 +102,48 @@ function AddTaskForm({ onAdd, onCancel }) {
   );
 }
 
-const pad = n => String(n).padStart(2, '0');
-const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
 export default function TodayTab({ tasks, addTask, toggleTask, deleteTask }) {
   const [showForm, setShowForm] = useState(false);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = localDateStr(today);
-  const todayTasks = tasks.filter(t => { const d = t.date?.toDate(); return d && localDateStr(d) === todayStr; });
-  const done = todayTasks.filter(t => t.completed).length;
-  const total = todayTasks.length;
+
+  // 날짜 오프셋 (0=오늘, -1=어제, +1=내일 ...)
+  const [offset, setOffset] = useState(0);
+
+  const baseDate = new Date();
+  baseDate.setHours(0, 0, 0, 0);
+  baseDate.setDate(baseDate.getDate() + offset);
+
+  const todayBase = new Date();
+  todayBase.setHours(0, 0, 0, 0);
+  const todayStr = localDateStr(todayBase);
+  const selectedStr = localDateStr(baseDate);
+  const isToday = offset === 0;
+
+  const dayTasks = tasks.filter(t => { const d = t.date?.toDate(); return d && localDateStr(d) === selectedStr; });
+  const done = dayTasks.filter(t => t.completed).length;
+  const total = dayTasks.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const grouped = {};
-  todayTasks.forEach(t => { if (!grouped[t.area]) grouped[t.area] = []; grouped[t.area].push(t); });
+  dayTasks.forEach(t => { if (!grouped[t.area]) grouped[t.area] = []; grouped[t.area].push(t); });
   const remaining = AREAS.filter(a => (grouped[a.code] || []).some(t => !t.completed));
-  const dateLabel = `${today.getMonth() + 1}월 ${today.getDate()}일 ${DAYS_KR[today.getDay()]}요일`;
+
+  const dateLabel = `${baseDate.getMonth() + 1}월 ${baseDate.getDate()}일 ${DAYS_KR[baseDate.getDay()]}요일`;
+  const progressLabel = isToday ? '오늘의 진행률' : offset < 0 ? `${Math.abs(offset)}일 전` : `${offset}일 후`;
 
   return (
     <div style={S.wrap}>
       {/* 히어로 카드 */}
       <div style={S.hero}>
-        <div style={S.heroYear}>{today.getFullYear()}년</div>
-        <div style={S.heroDate}>{dateLabel}</div>
+        <div style={S.heroYear}>{baseDate.getFullYear()}년</div>
+        <div style={S.heroDateRow}>
+          <button style={S.heroNavBtn} onClick={() => { setOffset(o => o - 1); setShowForm(false); }}>◀</button>
+          <div style={{ textAlign: 'center' }}>
+            <span style={S.heroDate}>{dateLabel}</span>
+            {isToday && <span style={S.todayChip}>오늘</span>}
+          </div>
+          <button style={S.heroNavBtn} onClick={() => { setOffset(o => o + 1); setShowForm(false); }}>▶</button>
+        </div>
         <div style={S.heroRow}>
-          <span style={S.heroLabel}>오늘의 진행률</span>
+          <span style={S.heroLabel}>{progressLabel}</span>
           <span style={S.heroCount}>{done} / {total}</span>
         </div>
         <div style={S.heroBar}><div style={{ ...S.heroFill, width: `${pct}%` }} /></div>
@@ -140,7 +161,13 @@ export default function TodayTab({ tasks, addTask, toggleTask, deleteTask }) {
       )}
 
       {/* 추가 폼 */}
-      {showForm && <AddTaskForm onAdd={(d) => { addTask(d); setShowForm(false); }} onCancel={() => setShowForm(false)} />}
+      {showForm && (
+        <AddTaskForm
+          defaultDate={selectedStr}
+          onAdd={(d) => { addTask(d); setShowForm(false); }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
 
       {/* 영역별 목록 */}
       {AREAS.map(area => {
@@ -160,8 +187,8 @@ export default function TodayTab({ tasks, addTask, toggleTask, deleteTask }) {
 
       {total === 0 && !showForm && (
         <div style={S.empty}>
-          <div style={S.emptyIcon}>✨</div>
-          <div style={S.emptyText}>오늘 등록된 업무가 없습니다</div>
+          <div style={S.emptyIcon}>{isToday ? '✨' : '📭'}</div>
+          <div style={S.emptyText}>{isToday ? '오늘 등록된 업무가 없습니다' : '이 날 등록된 업무가 없습니다'}</div>
           <div style={S.emptySubText}>아래 + 버튼으로 추가해보세요</div>
         </div>
       )}
