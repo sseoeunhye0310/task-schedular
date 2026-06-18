@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase';
+import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
+import { auth, googleProvider } from './firebase';
 import { useTasks } from './hooks/useTasks';
 import LoginScreen from './components/LoginScreen';
 import TodayTab from './components/TodayTab';
+import CalendarTab from './components/CalendarTab';
 import AreaTab from './components/AreaTab';
 import MonthlyPlanTab from './components/MonthlyPlanTab';
 import YearlyPlanTab from './components/YearlyPlanTab';
@@ -11,9 +12,9 @@ import ReportTab from './components/ReportTab';
 
 const TABS = [
   { id: 'today', label: '오늘', icon: '☀️' },
+  { id: 'calendar', label: '캘린더', icon: '📅' },
   { id: 'area', label: '영역별', icon: '📂' },
   { id: 'monthly', label: '월간', icon: '📆' },
-  { id: 'yearly', label: '연간', icon: '🗓️' },
   { id: 'report', label: '보고서', icon: '📋' },
 ];
 
@@ -25,6 +26,8 @@ export default function App() {
   const { tasks, loading, addTask, toggleTask, deleteTask } = useTasks(user);
 
   useEffect(() => {
+    // 리다이렉트 로그인 결과 처리
+    getRedirectResult(auth).catch(() => {});
     return onAuthStateChanged(auth, u => {
       setUser(u);
       setAuthLoading(false);
@@ -73,6 +76,7 @@ export default function App() {
     );
     switch (activeTab) {
       case 'today': return <TodayTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />;
+      case 'calendar': return <CalendarTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />;
       case 'area': return <AreaTab tasks={tasks} toggleTask={toggleTask} deleteTask={deleteTask} />;
       case 'monthly': return <MonthlyPlanTab user={user} tasks={tasks} />;
       case 'yearly': return <YearlyPlanTab user={user} />;
@@ -90,7 +94,6 @@ export default function App() {
         padding: '12px 16px', display: 'flex', alignItems: 'center',
         gap: '8px', position: 'sticky', top: 0, zIndex: 10,
       }}>
-        {/* 뒤로가기 버튼 */}
         <button
           onClick={goBack}
           disabled={!canGoBack}
@@ -107,7 +110,6 @@ export default function App() {
           ‹
         </button>
 
-        {/* 홈 버튼 */}
         <button
           onClick={goHome}
           style={{
@@ -123,12 +125,10 @@ export default function App() {
           🏠
         </button>
 
-        {/* 현재 탭 이름 */}
         <span style={{ flex: 1, fontSize: '17px', fontWeight: '700', color: '#1f2937', textAlign: 'center' }}>
           {currentTabLabel}
         </span>
 
-        {/* 프로필 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {user.photoURL
             ? <img src={user.photoURL} alt={user.displayName} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid #e5e7eb' }} />
@@ -166,14 +166,14 @@ export default function App() {
             onClick={() => goToTab(tab.id)}
             style={{
               flex: 1, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', padding: '10px 0 12px', gap: '3px',
+              alignItems: 'center', padding: '8px 0 10px', gap: '2px',
               border: 'none', background: 'transparent', cursor: 'pointer',
               color: activeTab === tab.id ? '#0C447C' : '#9ca3af',
               transition: 'color 0.15s',
             }}
           >
-            <span style={{ fontSize: '24px', lineHeight: 1 }}>{tab.icon}</span>
-            <span style={{ fontSize: '11px', fontWeight: '600', fontFamily: 'inherit' }}>{tab.label}</span>
+            <span style={{ fontSize: '22px', lineHeight: 1 }}>{tab.icon}</span>
+            <span style={{ fontSize: '10px', fontWeight: '600', fontFamily: 'inherit' }}>{tab.label}</span>
             {activeTab === tab.id && (
               <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#0C447C' }} />
             )}

@@ -98,12 +98,15 @@ function AddTaskForm({ onAdd, onCancel }) {
   );
 }
 
+const pad = n => String(n).padStart(2, '0');
+const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 export default function TodayTab({ tasks, addTask, toggleTask, deleteTask }) {
   const [showForm, setShowForm] = useState(false);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split('T')[0];
-  const todayTasks = tasks.filter(t => t.date?.toDate()?.toISOString().split('T')[0] === todayStr);
+  const todayStr = localDateStr(today);
+  const todayTasks = tasks.filter(t => { const d = t.date?.toDate(); return d && localDateStr(d) === todayStr; });
   const done = todayTasks.filter(t => t.completed).length;
   const total = todayTasks.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
