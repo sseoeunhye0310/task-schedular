@@ -6,18 +6,34 @@ import {
 import { db } from '../firebase';
 import { getRecurringTasksForDate } from '../utils/recurring';
 
+const pad = n => String(n).padStart(2, '0');
+const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 export function useTasks(user) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!user) { setTasks([]); setLoading(false); return; }
 
+    setLoading(true);
+    setError(null);
+
     const q = query(collection(db, 'tasks'), where('uid', '==', user.uid));
-    const unsub = onSnapshot(q, snap => {
-      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+        setError(null);
+      },
+      err => {
+        console.error('Firestore 오류:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
     return unsub;
   }, [user]);
 
@@ -27,13 +43,13 @@ export function useTasks(user) {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = localDateStr(today); // 로컬 날짜 기준
     const lastRun = localStorage.getItem(`lastRun_${user.uid}`);
 
     if (lastRun === todayStr) return;
 
     (async () => {
-      // 미완료 이월
+      // 미완료 이월: 어제 날짜 범위(로컬 기준)
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStart = Timestamp.fromDate(yesterday);
@@ -59,7 +75,7 @@ export function useTasks(user) {
       for (const t of recurTasks) {
         const exists = tasks.some(
           task => task.recurType === t.recurType && task.isRecurring &&
-            task.date?.toDate()?.toISOString().split('T')[0] === todayStr
+            localDateStr(task.date?.toDate()) === todayStr
         );
         if (!exists) {
           await addDoc(collection(db, 'tasks'), {
@@ -80,13 +96,14 @@ export function useTasks(user) {
   }, [user, loading]);
 
   const addTask = async ({ title, area, date }) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
+    // 날짜 문자열 "2026-06-18"을 로컬 자정으로 파싱 (UTC 해석 방지)
+    const [y, m, d] = date.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d, 0, 0, 0, 0);
     await addDoc(collection(db, 'tasks'), {
       uid: user.uid,
       title,
       area,
-      date: Timestamp.fromDate(d),
+      date: Timestamp.fromDate(dateObj),
       completed: false,
       isRecurring: false,
       recurType: null,
@@ -102,5 +119,5 @@ export function useTasks(user) {
     await deleteDoc(doc(db, 'tasks', id));
   };
 
-  return { tasks, loading, addTask, toggleTask, deleteTask };
+  return { tasks, loading, error, addTask, toggleTask, deleteTask };
 }

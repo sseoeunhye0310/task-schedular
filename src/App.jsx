@@ -23,7 +23,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('today');
   const [tabHistory, setTabHistory] = useState(['today']);
-  const { tasks, loading, addTask, toggleTask, deleteTask } = useTasks(user);
+  const { tasks, loading, error, addTask, toggleTask, deleteTask } = useTasks(user);
 
   useEffect(() => {
     // 리다이렉트 결과 먼저 처리 후 auth 상태 구독
@@ -85,8 +85,15 @@ export default function App() {
 
   const renderTab = () => {
     if (loading) return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
-        <p style={{ color: '#9ca3af' }}>불러오는 중...</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px' }}>
+        <div style={{ fontSize: '32px' }}>📅</div>
+        <p style={{ color: '#9ca3af', fontSize: '15px' }}>업무를 불러오는 중...</p>
+      </div>
+    );
+    if (error) return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '12px', padding: '16px' }}>
+        <div style={{ fontSize: '32px' }}>⚠️</div>
+        <p style={{ color: '#ef4444', fontSize: '14px', textAlign: 'center' }}>데이터를 불러오지 못했습니다.<br />인터넷 연결을 확인하고 새로고침해주세요.</p>
       </div>
     );
     switch (activeTab) {
