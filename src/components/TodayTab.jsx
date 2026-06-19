@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { AREAS, AREA_MAP } from '../constants/areas';
+import { localDateStr, taskDateStr } from '../hooks/useTasks';
 
 const DAYS_KR = ['일', '월', '화', '수', '목', '금', '토'];
-const pad = n => String(n).padStart(2, '0');
-const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const S = {
   wrap: { padding: '16px', boxSizing: 'border-box', width: '100%' },
@@ -118,7 +117,7 @@ export default function TodayTab({ tasks, addTask, toggleTask, deleteTask }) {
   const selectedStr = localDateStr(baseDate);
   const isToday = offset === 0;
 
-  const dayTasks = tasks.filter(t => { const d = t.date?.toDate(); return d && localDateStr(d) === selectedStr; });
+  const dayTasks = tasks.filter(t => taskDateStr(t) === selectedStr);
   const done = dayTasks.filter(t => t.completed).length;
   const total = dayTasks.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;

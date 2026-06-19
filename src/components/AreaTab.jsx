@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AREAS, AREA_MAP } from '../constants/areas';
+import { localDateStr, taskDateStr } from '../hooks/useTasks';
 
 const VIEWS = [
   { key: 'today', label: '오늘' },
@@ -11,9 +12,6 @@ const VIEWS = [
 export default function AreaTab({ tasks, toggleTask, deleteTask }) {
   const [selectedArea, setSelectedArea] = useState('paua');
   const [view, setView] = useState('today');
-
-  const pad = n => String(n).padStart(2, '0');
-  const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -27,11 +25,12 @@ export default function AreaTab({ tasks, toggleTask, deleteTask }) {
 
   const filtered = tasks.filter(t => {
     if (t.area !== selectedArea) return false;
-    const d = t.date?.toDate();
-    if (!d) return false;
-    const ds = localDateStr(d);
+    const ds = taskDateStr(t);
     if (view === 'today') return ds === todayStr && !t.completed;
-    if (view === 'week') return d >= weekStart && d <= weekEnd && !t.completed;
+    if (view === 'week') {
+      const d = t.date?.toDate();
+      return d && d >= weekStart && d <= weekEnd && !t.completed;
+    }
     if (view === 'recurring') return t.isRecurring && !t.completed;
     if (view === 'done') return t.completed;
     return false;

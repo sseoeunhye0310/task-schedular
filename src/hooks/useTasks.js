@@ -7,7 +7,11 @@ import { db } from '../firebase';
 import { getRecurringTasksForDate } from '../utils/recurring';
 
 const pad = n => String(n).padStart(2, '0');
-const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+// 로컬 날짜 문자열 "YYYY-MM-DD"
+export const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+// task의 날짜 문자열 반환 (dateStr 필드 우선, 없으면 로컬 변환)
+export const taskDateStr = t => t.dateStr || (t.date?.toDate ? localDateStr(t.date.toDate()) : '');
 
 export function useTasks(user) {
   const [tasks, setTasks] = useState([]);
@@ -43,60 +47,65 @@ export function useTasks(user) {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayStr = localDateStr(today); // 로컬 날짜 기준
+    const todayStr = localDateStr(today);
     const lastRun = localStorage.getItem(`lastRun_${user.uid}`);
 
     if (lastRun === todayStr) return;
 
     (async () => {
-      // 미완료 이월: 어제 날짜 범위(로컬 기준)
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStart = Timestamp.fromDate(yesterday);
-      const todayTs = Timestamp.fromDate(today);
+      try {
+        // 어제 날짜 문자열
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = localDateStr(yesterday);
 
-      const q = query(
-        collection(db, 'tasks'),
-        where('uid', '==', user.uid),
-        where('completed', '==', false),
-        where('date', '>=', yesterdayStart),
-        where('date', '<', todayTs)
-      );
-      const snap = await getDocs(q);
-      for (const d of snap.docs) {
-        await updateDoc(doc(db, 'tasks', d.id), {
-          date: Timestamp.fromDate(today),
-          carriedOver: true,
-        });
-      }
-
-      // 반복업무 자동 생성 (중복 방지)
-      const recurTasks = getRecurringTasksForDate(today);
-      for (const t of recurTasks) {
-        const exists = tasks.some(
-          task => task.recurType === t.recurType && task.isRecurring &&
-            localDateStr(task.date?.toDate()) === todayStr
+        // dateStr 필드로 어제 미완료 업무 찾기
+        const q = query(
+          collection(db, 'tasks'),
+          where('uid', '==', user.uid),
+          where('completed', '==', false),
+          where('dateStr', '==', yesterdayStr)
         );
-        if (!exists) {
-          await addDoc(collection(db, 'tasks'), {
-            uid: user.uid,
-            title: t.title,
-            area: t.area,
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(doc(db, 'tasks', d.id), {
             date: Timestamp.fromDate(today),
-            completed: false,
-            isRecurring: true,
-            recurType: t.recurType,
-            createdAt: Timestamp.now(),
+            dateStr: todayStr,
+            carriedOver: true,
           });
         }
-      }
 
-      localStorage.setItem(`lastRun_${user.uid}`, todayStr);
+        // 반복업무 자동 생성 (중복 방지)
+        const recurTasks = getRecurringTasksForDate(today);
+        for (const t of recurTasks) {
+          const exists = tasks.some(
+            task => task.recurType === t.recurType && task.isRecurring &&
+              taskDateStr(task) === todayStr
+          );
+          if (!exists) {
+            await addDoc(collection(db, 'tasks'), {
+              uid: user.uid,
+              title: t.title,
+              area: t.area,
+              date: Timestamp.fromDate(today),
+              dateStr: todayStr,
+              completed: false,
+              isRecurring: true,
+              recurType: t.recurType,
+              createdAt: Timestamp.now(),
+            });
+          }
+        }
+
+        localStorage.setItem(`lastRun_${user.uid}`, todayStr);
+      } catch (e) {
+        console.error('이월 처리 오류:', e);
+      }
     })();
   }, [user, loading]);
 
   const addTask = async ({ title, area, date }) => {
-    // 날짜 문자열 "2026-06-18"을 로컬 자정으로 파싱 (UTC 해석 방지)
+    // date: "2026-06-19" 문자열 그대로 저장 (타임존 독립)
     const [y, m, d] = date.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d, 0, 0, 0, 0);
     await addDoc(collection(db, 'tasks'), {
@@ -104,6 +113,7 @@ export function useTasks(user) {
       title,
       area,
       date: Timestamp.fromDate(dateObj),
+      dateStr: date,          // "YYYY-MM-DD" 문자열로도 저장
       completed: false,
       isRecurring: false,
       recurType: null,

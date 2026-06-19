@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { AREAS, AREA_MAP } from '../constants/areas';
+import { localDateStr, taskDateStr } from '../hooks/useTasks';
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const pad = n => String(n).padStart(2, '0');
-const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 export default function CalendarTab({ tasks, addTask, toggleTask, deleteTask }) {
   const now = new Date();
@@ -16,23 +16,23 @@ export default function CalendarTab({ tasks, addTask, toggleTask, deleteTask }) 
   // 이번 달 첫날/마지막날
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
-  const startDow = firstDay.getDay(); // 0=일
+  const startDow = firstDay.getDay();
   const totalDays = lastDay.getDate();
 
-  // 날짜별 태스크 색상 맵
+  // 날짜별 태스크 색상 맵 (dateStr 기준)
   const dotMap = {};
   tasks.forEach(t => {
-    const d = t.date?.toDate();
-    if (!d) return;
-    if (d.getFullYear() !== year || d.getMonth() !== month) return;
-    const ds = localDateStr(d);
+    const ds = taskDateStr(t);
+    if (!ds) return;
+    const [ty, tm] = ds.split('-').map(Number);
+    if (ty !== year || tm !== month + 1) return;
     if (!dotMap[ds]) dotMap[ds] = new Set();
     dotMap[ds].add(t.area);
   });
 
   // 선택된 날의 태스크
   const selectedTasks = tasks
-    .filter(t => { const d = t.date?.toDate(); return d && localDateStr(d) === selectedDate; })
+    .filter(t => taskDateStr(t) === selectedDate)
     .sort((a, b) => a.completed - b.completed);
 
   const navBtn = {
