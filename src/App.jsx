@@ -1,14 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { onAuthStateChanged, signOut, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
 import { useTasks } from './hooks/useTasks';
 import LoginScreen from './components/LoginScreen';
 import TodayTab from './components/TodayTab';
-import CalendarTab from './components/CalendarTab';
-import AreaTab from './components/AreaTab';
-import MonthlyPlanTab from './components/MonthlyPlanTab';
-import YearlyPlanTab from './components/YearlyPlanTab';
-import ReportTab from './components/ReportTab';
+
+// 처음에 보이지 않는 탭은 지연 로딩 — 초기 번들 크기 대폭 감소
+const CalendarTab = lazy(() => import('./components/CalendarTab'));
+const AreaTab = lazy(() => import('./components/AreaTab'));
+const MonthlyPlanTab = lazy(() => import('./components/MonthlyPlanTab'));
+const YearlyPlanTab = lazy(() => import('./components/YearlyPlanTab'));
+const ReportTab = lazy(() => import('./components/ReportTab')); // jsPDF/html2canvas 포함
+
+const TabFallback = (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
+    <p style={{ color: '#9ca3af', fontSize: '15px' }}>로딩 중...</p>
+  </div>
+);
 
 const TABS = [
   { id: 'today', label: '오늘', icon: '☀️' },
@@ -96,15 +104,16 @@ export default function App() {
         <p style={{ color: '#ef4444', fontSize: '14px', textAlign: 'center' }}>데이터를 불러오지 못했습니다.<br />인터넷 연결을 확인하고 새로고침해주세요.</p>
       </div>
     );
-    switch (activeTab) {
-      case 'today': return <TodayTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />;
-      case 'calendar': return <CalendarTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />;
-      case 'area': return <AreaTab tasks={tasks} toggleTask={toggleTask} deleteTask={deleteTask} />;
-      case 'monthly': return <MonthlyPlanTab user={user} tasks={tasks} />;
-      case 'yearly': return <YearlyPlanTab user={user} />;
-      case 'report': return <ReportTab tasks={tasks} />;
-      default: return null;
-    }
+    return (
+      <Suspense fallback={TabFallback}>
+        {activeTab === 'today' && <TodayTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />}
+        {activeTab === 'calendar' && <CalendarTab tasks={tasks} addTask={addTask} toggleTask={toggleTask} deleteTask={deleteTask} />}
+        {activeTab === 'area' && <AreaTab tasks={tasks} toggleTask={toggleTask} deleteTask={deleteTask} />}
+        {activeTab === 'monthly' && <MonthlyPlanTab user={user} tasks={tasks} />}
+        {activeTab === 'yearly' && <YearlyPlanTab user={user} />}
+        {activeTab === 'report' && <ReportTab tasks={tasks} />}
+      </Suspense>
+    );
   };
 
   return (
