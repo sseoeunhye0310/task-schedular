@@ -64,7 +64,11 @@ function TaskItem({ task, onToggle, onDelete }) {
         <div style={S.taskMeta}>
           <span style={{ fontWeight: '600', color: area.text }}>{area.short}</span>
           {task.carriedOver && <span style={{ ...S.badge, background: '#fef2f2', color: '#e74c3c' }}>이월</span>}
-          {task.isRecurring && !task.carriedOver && <span style={{ ...S.badge, background: '#f3f4f6', color: '#9ca3af' }}>반복</span>}
+          {task.isRecurring && !task.carriedOver && (
+            <span style={{ ...S.badge, background: '#f3f4f6', color: '#9ca3af' }}>
+              {task.recurInterval === 'daily' ? '매일' : task.recurInterval === 'weekly' ? '매주' : task.recurInterval === 'monthly' ? '매월' : task.recurInterval === 'yearly' ? '매년' : '반복'}
+            </span>
+          )}
         </div>
       </div>
       <button onClick={() => onDelete(task.id)} style={S.delBtn}>✕</button>
@@ -72,15 +76,25 @@ function TaskItem({ task, onToggle, onDelete }) {
   );
 }
 
+const RECUR_OPTIONS = [
+  { value: '', label: '반복 없음' },
+  { value: 'daily', label: '매일' },
+  { value: 'weekly', label: '매주' },
+  { value: 'monthly', label: '매월' },
+  { value: 'yearly', label: '매년' },
+];
+
 function AddTaskForm({ defaultDate, onAdd, onCancel }) {
   const [title, setTitle] = useState('');
   const [area, setArea] = useState('paua');
   const [date, setDate] = useState(defaultDate);
+  const [recurInterval, setRecurInterval] = useState('');
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim()) return;
-    onAdd({ title: title.trim(), area, date });
+    onAdd({ title: title.trim(), area, date, recurInterval });
     setTitle('');
+    setRecurInterval('');
   };
   return (
     <form onSubmit={handleSubmit} style={S.form}>
@@ -93,6 +107,17 @@ function AddTaskForm({ defaultDate, onAdd, onCancel }) {
         </select>
         <input type="date" value={date} onChange={e => setDate(e.target.value)} style={S.dateInput} />
       </div>
+      <div style={{ marginBottom: '10px' }}>
+        <select value={recurInterval} onChange={e => setRecurInterval(e.target.value)}
+          style={{ ...S.select, width: '100%' }}>
+          {RECUR_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      {recurInterval && (
+        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
+          📅 {date} 부터 {RECUR_OPTIONS.find(o => o.value === recurInterval)?.label} 반복됩니다
+        </div>
+      )}
       <div style={S.btnRow}>
         <button type="submit" style={S.btnPrimary}>추가하기</button>
         <button type="button" onClick={onCancel} style={S.btnSecondary}>취소</button>

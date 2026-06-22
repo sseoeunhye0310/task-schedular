@@ -9,6 +9,18 @@ import { getRecurringTasksForDate } from '../utils/recurring';
 const pad = n => String(n).padStart(2, '0');
 export const localDateStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+function shouldRecurToday(task, today) {
+  if (!task.recurOriginalDate) return false;
+  const orig = new Date(task.recurOriginalDate + 'T00:00:00');
+  switch (task.recurInterval) {
+    case 'daily': return true;
+    case 'weekly': return today.getDay() === orig.getDay();
+    case 'monthly': return today.getDate() === orig.getDate();
+    case 'yearly': return today.getMonth() === orig.getMonth() && today.getDate() === orig.getDate();
+    default: return false;
+  }
+}
+
 // dateStr 필드 우선, 없으면 KST 기준 로컬 변환
 export const taskDateStr = t => {
   if (t.dateStr) return t.dateStr;
@@ -93,7 +105,7 @@ export function useTasks(user) {
           });
         }
 
-        // 반복업무 자동 생성
+        // 고정 반복업무 자동 생성
         const recurTasks = getRecurringTasksForDate(today);
         for (const t of recurTasks) {
           const exists = tasks.some(
@@ -110,6 +122,34 @@ export function useTasks(user) {
               completed: false,
               isRecurring: true,
               recurType: t.recurType,
+              recurId: null,
+              recurInterval: null,
+              createdAt: Timestamp.now(),
+            });
+          }
+        }
+
+        // 사용자 정의 반복업무 자동 생성
+        const seenRecurIds = new Set();
+        const masters = tasks.filter(t => t.isRecurring && t.recurInterval && t.recurId);
+        for (const t of masters) {
+          if (seenRecurIds.has(t.recurId)) continue;
+          seenRecurIds.add(t.recurId);
+          if (!shouldRecurToday(t, today)) continue;
+          const exists = tasks.some(task => task.recurId === t.recurId && taskDateStr(task) === todayStr);
+          if (!exists) {
+            await addDoc(collection(db, 'tasks'), {
+              uid: user.uid,
+              title: t.title,
+              area: t.area,
+              date: Timestamp.fromDate(today),
+              dateStr: todayStr,
+              completed: false,
+              isRecurring: true,
+              recurInterval: t.recurInterval,
+              recurOriginalDate: t.recurOriginalDate,
+              recurId: t.recurId,
+              recurType: null,
               createdAt: Timestamp.now(),
             });
           }
@@ -122,9 +162,10 @@ export function useTasks(user) {
     })();
   }, [user, loading]);
 
-  const addTask = async ({ title, area, date }) => {
+  const addTask = async ({ title, area, date, recurInterval }) => {
     const [y, m, d] = date.split('-').map(Number);
     const dateObj = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const recurId = recurInterval ? Math.random().toString(36).slice(2) : null;
     await addDoc(collection(db, 'tasks'), {
       uid: user.uid,
       title,
@@ -132,7 +173,10 @@ export function useTasks(user) {
       date: Timestamp.fromDate(dateObj),
       dateStr: date,
       completed: false,
-      isRecurring: false,
+      isRecurring: !!recurInterval,
+      recurInterval: recurInterval || null,
+      recurOriginalDate: recurInterval ? date : null,
+      recurId,
       recurType: null,
       createdAt: Timestamp.now(),
     });
