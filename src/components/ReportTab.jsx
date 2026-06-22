@@ -1,32 +1,56 @@
 import { useState } from 'react';
 import { AREAS } from '../constants/areas';
+import { taskDateStr } from '../hooks/useTasks';
 import { generatePDF } from '../utils/pdf';
+
+function getWeekRange(offset) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // 이번 주 월요일
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - today.getDay() + 1 + offset * 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { start: monday, end: sunday };
+}
+
+function getMonthRange(offset) {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = today.getMonth() + offset;
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function weekLabel(start, end) {
+  const sM = start.getMonth() + 1, sD = start.getDate();
+  const eM = end.getMonth() + 1, eD = end.getDate();
+  if (sM === eM) return `${sM}월 ${sD}일 ~ ${eD}일`;
+  return `${sM}월 ${sD}일 ~ ${eM}월 ${eD}일`;
+}
+
+function monthLabel(start) {
+  return `${start.getFullYear()}년 ${start.getMonth() + 1}월`;
+}
 
 export default function ReportTab({ tasks }) {
   const [period, setPeriod] = useState('weekly');
+  const [offset, setOffset] = useState(0);
   const [generating, setGenerating] = useState(false);
 
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
+  const { start, end } = period === 'weekly' ? getWeekRange(offset) : getMonthRange(offset);
 
-  const getPeriodRange = () => {
-    if (period === 'weekly') {
-      const start = new Date(today);
-      start.setDate(today.getDate() - today.getDay() + 1);
-      start.setHours(0, 0, 0, 0);
-      return { start, end: today };
-    } else {
-      const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start, end: today };
-    }
-  };
-
-  const { start, end } = getPeriodRange();
+  const label = period === 'weekly' ? weekLabel(start, end) : monthLabel(start);
+  const isCurrentPeriod = offset === 0;
 
   const filteredTasks = tasks.filter(t => {
-    const d = t.date?.toDate();
-    if (!d) return false;
-    return t.completed && d >= start && d <= end;
+    const ds = taskDateStr(t);
+    if (!ds) return false;
+    if (!t.completed) return false;
+    const d = new Date(ds + 'T00:00:00');
+    return d >= start && d <= end;
   });
 
   const grouped = {};
@@ -35,58 +59,74 @@ export default function ReportTab({ tasks }) {
     grouped[t.area].push(t);
   });
 
-  const periodLabel = period === 'weekly'
-    ? `${start.getMonth() + 1}월 ${start.getDate()}일 ~ ${end.getDate()}일`
-    : `${today.getFullYear()}년 ${today.getMonth() + 1}월`;
-
   const handlePDF = async () => {
     if (filteredTasks.length === 0) { alert('완료된 업무가 없습니다.'); return; }
     setGenerating(true);
     try {
-      await generatePDF(filteredTasks, period, periodLabel);
+      await generatePDF(filteredTasks, period, label);
     } finally {
       setGenerating(false);
     }
   };
+
+  const navBtn = (dir) => ({
+    width: '36px', height: '36px', borderRadius: '10px',
+    background: 'rgba(255,255,255,0.15)', border: 'none',
+    color: '#fff', fontSize: '18px', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  });
 
   return (
     <div style={{ padding: '16px', boxSizing: 'border-box', width: '100%' }}>
       {/* 헤더 카드 */}
       <div style={{ background: 'linear-gradient(135deg, #1f2937, #374151)', borderRadius: '20px', padding: '20px', marginBottom: '18px', color: '#fff' }}>
         <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '4px' }}>업무 완료 보고서</div>
-        <div style={{ fontSize: '13px', color: '#9ca3af', marginBottom: '16px' }}>
-          {periodLabel} · {filteredTasks.length}건 완료
+
+        {/* 주간/월간 토글 */}
+        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '14px', padding: '4px', marginBottom: '14px' }}>
+          {['weekly', 'monthly'].map(p => (
+            <button key={p} onClick={() => { setPeriod(p); setOffset(0); }}
+              style={{
+                flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+                background: period === p ? '#fff' : 'transparent',
+                color: period === p ? '#1f2937' : '#9ca3af',
+              }}>
+              {p === 'weekly' ? '주간' : '월간'}
+            </button>
+          ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {/* 기간 토글 */}
-          <div style={{ flex: 1, display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '14px', padding: '4px' }}>
-            {['weekly', 'monthly'].map((p, i) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
-                  border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-                  background: period === p ? '#fff' : 'transparent',
-                  color: period === p ? '#1f2937' : '#9ca3af',
-                }}
-              >
-                {p === 'weekly' ? '주간' : '월간'}
-              </button>
-            ))}
+        {/* 기간 네비게이션 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <button style={navBtn()} onClick={() => setOffset(o => o - 1)}>◀</button>
+          <div style={{ flex: 1, textAlign: 'center' }}>
+            <div style={{ fontSize: '15px', fontWeight: '700' }}>{label}</div>
+            {isCurrentPeriod && (
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                {period === 'weekly' ? '이번 주' : '이번 달'}
+              </div>
+            )}
+            {offset < 0 && (
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                {period === 'weekly' ? `${Math.abs(offset)}주 전` : `${Math.abs(offset)}달 전`}
+              </div>
+            )}
           </div>
-          {/* PDF 버튼 */}
-          <button
-            onClick={handlePDF}
-            disabled={generating}
+          <button style={{ ...navBtn(), opacity: offset >= 0 ? 0.3 : 1, cursor: offset >= 0 ? 'default' : 'pointer' }}
+            onClick={() => offset < 0 && setOffset(o => o + 1)}>▶</button>
+        </div>
+
+        {/* 요약 + PDF */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: '13px', color: '#9ca3af' }}>{filteredTasks.length}건 완료</div>
+          <button onClick={handlePDF} disabled={generating}
             style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '12px 18px',
-              background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '14px',
+              display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
+              background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px',
               fontSize: '14px', fontWeight: '700', cursor: generating ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', flexShrink: 0, opacity: generating ? 0.7 : 1,
-            }}
-          >
+              fontFamily: 'inherit', opacity: generating ? 0.7 : 1,
+            }}>
             {generating ? '⏳' : '📄'} PDF
           </button>
         </div>
@@ -121,7 +161,7 @@ export default function ReportTab({ tasks }) {
                     {task.title} 업무를 진행함.
                   </span>
                   <span style={{ fontSize: '12px', color: '#9ca3af', flexShrink: 0 }}>
-                    {task.date?.toDate()?.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+                    {taskDateStr(task).slice(5).replace('-', '/')}
                   </span>
                 </div>
               ))}
