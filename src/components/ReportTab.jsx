@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AREAS } from '../constants/areas';
 import { taskDateStr } from '../hooks/useTasks';
 import { generatePDF } from '../utils/pdf';
+import { exportToICS } from '../utils/ics';
 
 function getWeekRange(offset) {
   const today = new Date();
@@ -117,18 +118,32 @@ export default function ReportTab({ tasks }) {
             onClick={() => offset < 0 && setOffset(o => o + 1)}>▶</button>
         </div>
 
-        {/* 요약 + PDF */}
+        {/* 요약 + 버튼 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: '13px', color: '#9ca3af' }}>{filteredTasks.length}건 완료</div>
-          <button onClick={handlePDF} disabled={generating}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px',
-              background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px',
-              fontSize: '14px', fontWeight: '700', cursor: generating ? 'not-allowed' : 'pointer',
-              fontFamily: 'inherit', opacity: generating ? 0.7 : 1,
-            }}>
-            {generating ? '⏳' : '📄'} PDF
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => {
+                if (filteredTasks.length === 0) { alert('내보낼 업무가 없습니다.'); return; }
+                exportToICS(filteredTasks, label);
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 14px',
+                background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: '12px',
+                fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit',
+              }}>
+              📅 캘린더
+            </button>
+            <button onClick={handlePDF} disabled={generating}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 14px',
+                background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px',
+                fontSize: '14px', fontWeight: '700', cursor: generating ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', opacity: generating ? 0.7 : 1,
+              }}>
+              {generating ? '⏳' : '📄'} PDF
+            </button>
+          </div>
         </div>
       </div>
 
